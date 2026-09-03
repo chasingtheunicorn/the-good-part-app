@@ -113,7 +113,7 @@ function low(x) { return /^(The|A|An|My|Our|His|Her|Their|He|She|They|We|You|Som
 // pour" has one already, typed lowercase. Only a bare verb gets "we".
 var BASEVERB = /^(see|watch|catch|hear|try|taste|meet|find|fix|open|hand|pull|pour|start|run|play|sing|throw|race|ask|tell|make|build|finish|install|paint|cook|bake|plant|light|switch|plug|test|drive|ride|climb|jump|swim|walk|go|get|take|give|show|bring|cut|serve|wait|arrive|land|step|turn|lift|carry|read|write|call|answer|say|do|put|set|hold|hit|kick|score|win|lose|check|look|listen|smell|feel|touch|press|flip|drop|pick|unbox|reveal|unveil|surprise|greet|hug|kiss|film|record|shoot|let|help|stand|sit|come|leave|walk|eat|drink|sip)\b/i;
 var SMALLWORD = /^(the|a|an|my|our|his|her|their|he|she|they|we|i|you|it|someone|somebody|everyone|nobody|this|that|these|those|one|two|three|dad|mom|mum|grandma|grandpa|mr|mrs|ms|dr|my)\b/i;
-var BUILD = 12;
+var BUILD = 13;
 // "try's" is "tries" when the word is a verb; "dad's" stays.
 function conj(v) { v = v.toLowerCase(); if (/[^aeiou]y$/.test(v)) return v.slice(0, -1) + 'ies'; if (/(s|x|ch|sh|o)$/.test(v)) return v + 'es'; return v + 's'; }
 function fixVerbs(t) {
@@ -697,8 +697,7 @@ function resume(s) {
   var st = stateOf(s);
   if (st === 'draft') {
     var f = s.find;
-    if (f && f.act && f.ques) return 'pick';
-    if (f && f.act) return 'ques';
+    if (f && f.at) return f.at;
     if (f) return 'verb';
     return classify(s.moment) === 'moment' ? 'ok' : 'verb';
   }
@@ -766,6 +765,7 @@ function wireDoor(f, main, s, screen) {
 function verbScreen(main, bar, s) {
   var f = s.find || { door: guessDoor(s.moment), act: '', ques: '', kind: 'material' };
   var R = RUNG[f.door] || RUNG['2'], K = KIND[f.kind] || KIND.material;
+  f.at = 'verb'; s.find = f; save();
   main.appendChild(el('<p class="eyebrow">Step 1 of 2: what happens</p><h1>' + K[0] + '</h1><p>' + K[1] + '</p>' +
     '<p class="xs">You said: \u201c' + esc(s.moment) + '\u201d</p>' +
     doorLine(f, main, s, 'verb') +
@@ -794,6 +794,7 @@ function verbScreen(main, bar, s) {
 // ---------- step three: what is in doubt (the question, book p.24 and p.28) ----------
 function quesScreen(main, bar, s) {
   var f = s.find; if (!f || !f.act) return go('verb', s.id);
+  f.at = 'ques'; save();
   var R = RUNG[f.door] || RUNG['2'];
   main.appendChild(el('<p class="eyebrow">Step 2 of 2: what is in doubt</p><h1>' + R.q + '</h1>' +
     '<p>Don\u2019t ask what you\u2019d like to do. Ask what you\u2019d like to know. The answer is the second you press record for.</p>' +
@@ -817,6 +818,7 @@ function quesScreen(main, bar, s) {
 // ---------- the result: three ways to say it, each checked ----------
 function pickScreen(main, bar, s) {
   var f = s.find; if (!f || !f.act || !f.ques) return go('verb', s.id);
+  f.at = 'pick'; save();
   var c = candidates(f.door, f.act, f.ques);
   main.appendChild(el('<p class="eyebrow e">Your moment</p><h1>Pick the one you\u2019d say out loud.</h1>' +
     '<p>Three ways to say the same second. Tap one; every word can still be changed on the sheet.</p>' +
