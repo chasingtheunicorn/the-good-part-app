@@ -113,7 +113,7 @@ function low(x) { return /^(The|A|An|My|Our|His|Her|Their|He|She|They|We|You|Som
 // pour" has one already, typed lowercase. Only a bare verb gets "we".
 var BASEVERB = /^(see|watch|catch|hear|try|taste|meet|find|fix|open|hand|pull|pour|start|run|play|sing|throw|race|ask|tell|make|build|finish|install|paint|cook|bake|plant|light|switch|plug|test|drive|ride|climb|jump|swim|walk|go|get|take|give|show|bring|cut|serve|wait|arrive|land|step|turn|lift|carry|read|write|call|answer|say|do|put|set|hold|hit|kick|score|win|lose|check|look|listen|smell|feel|touch|press|flip|drop|pick|unbox|reveal|unveil|surprise|greet|hug|kiss|film|record|shoot|let|help|stand|sit|come|leave|walk|eat|drink|sip)\b/i;
 var SMALLWORD = /^(the|a|an|my|our|his|her|their|he|she|they|we|i|you|it|someone|somebody|everyone|nobody|this|that|these|those|one|two|three|dad|mom|mum|grandma|grandpa|mr|mrs|ms|dr|my)\b/i;
-var BUILD = 11;
+var BUILD = 12;
 // "try's" is "tries" when the word is a verb; "dad's" stays.
 function conj(v) { v = v.toLowerCase(); if (/[^aeiou]y$/.test(v)) return v.slice(0, -1) + 'ies'; if (/(s|x|ch|sh|o)$/.test(v)) return v + 'es'; return v + 's'; }
 function fixVerbs(t) {
@@ -495,6 +495,7 @@ function render() {
 function allDone(s) { return (s.shots || []).length === 6 && s.shots.every(function (x) { return x.done; }); }
 function stateOf(s) {
   if (!s || !s.moment) return 'idle';
+  if (!s.shots) return 'draft';
   if (!s.plan || !s.plan.date) return 'plan';
   if (!allDone(s)) return 'shoot';
   if (!s.posted) return 'post';
@@ -521,7 +522,7 @@ function pill(s) {
   if (s.posted) { var n = daysUntil(s.posted);
     return n <= 0 ? '<span class="pill due">week test</span>' : '<span class="pill">' + n + ' day' + (n === 1 ? '' : 's') + '</span>'; }
   if (s.shots) return '<span class="pill">ready to shoot</span>';
-  return '<span class="pill">unfinished</span>';
+  return '<span class="pill due">unfinished</span>';
 }
 
 function seasonStrip() {
@@ -547,6 +548,10 @@ function home(main, bar) {
     html = card('idle', 'Start here', 'What are you filming?',
       'A thing, a day out, a plan, or the moment itself. Start with whatever you have and the app walks it up to the one second that matters, then writes the sheet.',
       '<button class="btn go" id="a1">Start</button>');
+  } else if (st === 'draft') {
+    html = card('idle', 'Next: finish the sentence', '\u201c' + esc(s.moment) + '\u201d',
+      'You started this and stepped away before it was drafted. Pick it up where it stopped, or drop it.',
+      '<button class="btn go" id="a1">Pick it up</button><button class="btn quiet" id="a2">Drop it</button>');
   } else if (st === 'plan') {
     html = card('plan', 'Next: make it a plan', 'When are you shooting it?',
       'A day, and the thing you already do just before it. Deciding now is the difference between meaning to and doing it.',
@@ -584,6 +589,7 @@ function home(main, bar) {
   var a1 = $('#a1', main), a2 = $('#a2', main);
   if (a1) a1.onclick = function () {
     if (st === 'idle' || st === 'wait') return newSheet();
+    if (st === 'draft') return go(resume(s), s.id);
     if (st === 'plan') return go('plan', s.id);
     if (st === 'shoot') return go('shots', s.id);
     if (st === 'post') { s.posted = new Date().toISOString().slice(0, 10); save(); scheduleWeekTest(s); return go('after', s.id); }
@@ -591,6 +597,7 @@ function home(main, bar) {
     if (st === 'show') return go('shown', s.id);
   };
   if (a2) a2.onclick = function () {
+    if (st === 'draft') { db.sheets = db.sheets.filter(function (x) { return x.id !== s.id; }); save(); return render(); }
     if (st === 'plan') return go('sheet', s.id);
     if (st === 'post') return go('after', s.id);
     if (st === 'show') { s.shown = { role: '', said: '', match: null, skipped: true }; save(); return render(); }
@@ -631,7 +638,7 @@ function planScreen(main, bar, s) {
   $$('#anchors button', main).forEach(function (b) { b.onclick = function () {
     p.anchor = b.dataset.a; $$('#anchors button', main).forEach(function (x) { x.classList.toggle('on', x === b); }); preview(); }; });
   bar.innerHTML = '<button class="btn quiet" id="back">Back</button><button class="btn go" id="ok">That\u2019s the plan</button>';
-  $('#back', bar).onclick = function () { go('home'); };
+  $('#back', bar).onclick = function () { go('sheet', s.id); };
   $('#ok', bar).onclick = function () {
     if (!p.date) { p.date = dateFor('tomorrow'); p.key = 'tomorrow'; }
     s.plan = p; s.win = planLabel(p) + ', 20 minutes';
@@ -688,6 +695,13 @@ function newSheet() {
 // Where a sheet picks up from, given its state.
 function resume(s) {
   var st = stateOf(s);
+  if (st === 'draft') {
+    var f = s.find;
+    if (f && f.act && f.ques) return 'pick';
+    if (f && f.act) return 'ques';
+    if (f) return 'verb';
+    return classify(s.moment) === 'moment' ? 'ok' : 'verb';
+  }
   return { idle: s.moment ? 'after' : 'say', plan: 'plan', shoot: 'shots', post: 'after', wait: 'after', due: 'after', show: 'shown' }[st] || 'sheet';
 }
 
@@ -828,6 +842,7 @@ function field(k, val, opts) {
     esc(val || 'Tap to set') + '</div></button>';
 }
 function sheetScreen(main, bar, s) {
+  if (!s.sample && s.moment && !s.shots) return go(resume(s), s.id);
   var g = s.guessed || {};
   var open = view.arg;
   var rows = timing(s);
@@ -859,7 +874,7 @@ function sheetScreen(main, bar, s) {
     render(); }; });
 
   bar.innerHTML = '<div class="row"><button class="btn quiet" id="share">Share</button></div>' +
-    '<button class="btn go" id="after">' + (s.sample ? 'Say mine' : (!s.plan || !s.plan.date) ? 'When?' : allDone(s) ? 'That night' : 'Shoot it') + '</button>';
+    '<button class="btn go" id="after">' + (s.sample ? 'Say mine' : (!s.plan || !s.plan.date) ? 'Set the day' : allDone(s) ? 'That night' : 'Shoot it') + '</button>';
   $('#share', bar).onclick = function () {
     var text = sheetText(s);
     if (has('Share')) return Cap.Plugins.Share.share({ title: 'My Day Sheet', text: text }).catch(function () {});
@@ -877,7 +892,8 @@ function sheetScreen(main, bar, s) {
 
 // ---------- shooting: the six, one screen, nothing else on it ----------
 function shotsScreen(main, bar, s) {
-  var done = (s.shots || []).filter(function (x) { return x.done; }).length, left = 6 - done;
+  if (!s.shots) return go(resume(s), s.id);
+  var done = s.shots.filter(function (x) { return x.done; }).length, left = 6 - done;
   main.appendChild(el('<p class="eyebrow e">' + (s.plan && s.plan.date ? esc(planLabel(s.plan)) : 'Shooting') + '</p>' +
     '<h1>' + (left === 0 ? 'Six shots. The camera goes away.' : left === 6 ? 'Six shots, then stop.' : left + ' shot' + (left === 1 ? '' : 's') + ' to go.') + '</h1>' +
     '<p>\u201c' + esc(s.moment) + '\u201d</p>' +
@@ -995,9 +1011,9 @@ function after(main, bar, s) {
       $('#fail', main).onclick = function () { s.week = { answer: a, pass: false, date: new Date().toISOString() }; save(); go('shown', s.id); };
     };
   }
-  bar.innerHTML = '<button class="btn quiet" id="back">My sheet</button><button class="btn" id="log">The log</button>';
+  bar.innerHTML = '<button class="btn quiet" id="back">My sheet</button><button class="btn go" id="done">Done</button>';
   $('#back', bar).onclick = function () { keep(); go('sheet', s.id); };
-  $('#log', bar).onclick = function () { keep(); go('log'); };
+  $('#done', bar).onclick = function () { keep(); go('home'); };
 }
 
 function numbersScreen(main, bar, s) {
@@ -1046,7 +1062,7 @@ function diagnose(main, bar, s) {
       '<div class="row"><button class="btn quiet" id="again">Try another symptom</button></div>'));
     $('#again', main).onclick = function () { go('diagnose', view.id, null); };
   }
-  bar.innerHTML = '<button class="btn quiet" id="back">Back</button><button class="btn go" id="home">My sheets</button>';
+  bar.innerHTML = '<button class="btn quiet" id="back">Back</button><button class="btn go" id="home">Home</button>';
   $('#back', bar).onclick = function () { step && step.indexOf(':') > 0 ? go('diagnose', view.id, step.split(':')[0]) : (step ? go('diagnose', view.id, null) : go('home')); };
   $('#home', bar).onclick = function () { go('home'); };
 }
@@ -1057,7 +1073,7 @@ function logScreen(main, bar) {
   var open = all.filter(function (s) { return !s.posted; }), done = all.filter(function (s) { return s.posted; });
   function row(s) {
     var st = stateOf(s), sub = s.posted ? 'Posted ' + fmt(s.posted) + (s.week ? '. Named: \u201c' + esc(s.week.answer) + '\u201d' : '')
-      : { plan: 'No day set yet', shoot: (s.shots || []).filter(function (x) { return x.done; }).length + ' of 6 shot' + (s.plan && s.plan.date ? '. ' + esc(planLabel(s.plan)) : ''),
+      : { draft: 'Not finished. Tap to pick it up', plan: 'No day set yet', shoot: (s.shots || []).filter(function (x) { return x.done; }).length + ' of 6 shot' + (s.plan && s.plan.date ? '. ' + esc(planLabel(s.plan)) : ''),
           post: 'Shot. Not posted yet' }[st] || 'In progress';
     return '<div class="rowi" data-id="' + s.id + '"><div><b>' + esc(s.title || s.moment) + '</b><small>' + sub + '</small></div>' + pill(s) + '</div>';
   }
@@ -1141,7 +1157,8 @@ function unlock(main, bar) {
     '<label class="lbl" for="code">The code from the book</label>' +
     '<input type="text" id="code" placeholder="XXXX-XXXX-XXXX-XXXX" autocapitalize="characters" spellcheck="false" style="font-family:var(--mono);font-style:normal">' +
     '<div id="cres"></div>'));
-  bar.innerHTML = '<button class="btn quiet" id="use">Use my code</button><button class="btn go" id="buy">Unlock ' + PRICE + '</button>';
+  bar.innerHTML = '<button class="btn quiet" id="later">Not now</button><button class="btn quiet" id="use">Use my code</button><button class="btn go" id="buy">Unlock ' + PRICE + '</button>';
+  $('#later', bar).onclick = function () { go('home'); };
   $('#use', bar).onclick = function () {
     if (redeem($('#code', main).value)) {
       $('#cres', main).innerHTML = '<div class="note"><b>Thirty days, on the house.</b> Every feature, no card.</div>';
