@@ -113,10 +113,30 @@ function low(x) { return /^(The|A|An|My|Our|His|Her|Their|He|She|They|We|You|Som
 // pour" has one already, typed lowercase. Only a bare verb gets "we".
 var BASEVERB = /^(see|watch|catch|hear|try|taste|meet|find|fix|open|hand|pull|pour|start|run|play|sing|throw|race|ask|tell|make|build|finish|install|paint|cook|bake|plant|light|switch|plug|test|drive|ride|climb|jump|swim|walk|go|get|take|give|show|bring|cut|serve|wait|arrive|land|step|turn|lift|carry|read|write|call|answer|say|do|put|set|hold|hit|kick|score|win|lose|check|look|listen|smell|feel|touch|press|flip|drop|pick|unbox|reveal|unveil|surprise|greet|hug|kiss|film|record|shoot|let|help|stand|sit|come|leave|walk|eat|drink|sip)\b/i;
 var SMALLWORD = /^(the|a|an|my|our|his|her|their|he|she|they|we|i|you|it|someone|somebody|everyone|nobody|this|that|these|those|one|two|three|dad|mom|mum|grandma|grandpa|mr|mrs|ms|dr|my)\b/i;
+var BUILD = 11;
+// "try's" is "tries" when the word is a verb; "dad's" stays.
+function conj(v) { v = v.toLowerCase(); if (/[^aeiou]y$/.test(v)) return v.slice(0, -1) + 'ies'; if (/(s|x|ch|sh|o)$/.test(v)) return v + 'es'; return v + 's'; }
+function fixVerbs(t) {
+  return t.replace(/\b([A-Za-z]+)[\u2019']s\b/g, function (m, w) { return BASEVERB.test(w) && !/^(let|it)$/i.test(w) ? conj(w) : m; })
+          .replace(/\btrys\b/gi, 'tries');
+}
+// "...to see if it is good" is the next question typed into this box.
+var EMBED = /\s+(?:to|and|,)\s*(?:see|find out|check|know|learn|discover)\s+(?:if|whether)\s+(.+)$/i;
+function splitAct(act) {
+  var m = (act || '').match(EMBED);
+  return m ? { act: act.slice(0, m.index).trim(), ques: m[1].trim() } : { act: act || '', ques: '' };
+}
 function cleanAct(act) {
-  act = (act || '').trim().replace(/[.!]$/, '');
+  act = fixVerbs((act || '').trim().replace(/[.!]$/, ''));
+  act = splitAct(act).act;
   act = act.replace(/^(to|we will|we\u2019ll|we'll|i will|i\u2019ll|i'll|will|going to|gonna)\s+/i, '');
   return act.trim();
+}
+// "is the bourbon is good" -> "is the bourbon good"; "if it holds" -> "it holds".
+function cleanQ(q) {
+  q = fixVerbs((q || '').trim().replace(/[.?!]+$/, ''));
+  q = q.replace(/^(is|are|was|were|will|does|do|did|can)\s+(.+?)\s+\1\s+/i, '$1 $2 ');
+  return q.trim();
 }
 function withSubject(act) {
   act = cleanAct(act);
@@ -132,6 +152,7 @@ function subjectOf(act) {
 // Two things, or the future, will not sit inside "the face when".
 function actWarning(act) {
   act = (act || '').trim(); if (!act) return '';
+  if (EMBED.test(act)) return 'You answered the next question in there too. Keep just what happens here; the doubt goes in the next box.';
   if (/\b(and then|and|then)\b/i.test(act)) return 'That is two things. Which one second? Say just that one.';
   if (/\b(will|going to|gonna|\u2019ll|'ll)\b/i.test(act)) return 'Say it as if it is happening now: \u201cJohn tastes the pour\u201d, not \u201cJohn will taste it\u201d.';
   return '';
@@ -143,7 +164,7 @@ function isDirectQ(q) {
 function lowQ(q) { return /^I\b/.test(q) ? q : q.charAt(0).toLowerCase() + q.slice(1); }
 function candidates(door, act, ques) {
   act = cleanAct(act);
-  ques = (ques || '').replace(/[.?!]$/, '').trim();
+  ques = cleanQ(ques);
   var out = [];
   if (!act) return out;
   var A = withSubject(act), a = low(A), Acap = cap(A);
@@ -750,7 +771,10 @@ function verbScreen(main, bar, s) {
   if (!f.act) inp.focus();
   bar.innerHTML = '<button class="btn quiet" id="back">Back</button><button class="btn go" id="next">Next</button>';
   $('#back', bar).onclick = function () { s.find = f; save(); go('say', s.id); };
-  $('#next', bar).onclick = function () { f.act = inp.value.trim(); if (!f.act) return inp.focus(); s.find = f; save(); go('ques', s.id); };
+  $('#next', bar).onclick = function () {
+    var sp = splitAct(inp.value.trim()); f.act = sp.act; if (!f.act) return inp.focus();
+    if (sp.ques && !f.ques) f.ques = sp.ques;
+    s.find = f; save(); go('ques', s.id); };
 }
 
 // ---------- step three: what is in doubt (the question, book p.24 and p.28) ----------
@@ -767,7 +791,7 @@ function quesScreen(main, bar, s) {
   var inp = $('#ques', main);
   function preview() {
     var c = candidates(f.door, f.act, inp.value);
-    $('#pv', main).textContent = c.length ? 'Reads as: \u201c' + c[inp.value.trim() ? 1 : 0] + '\u201d' : '';
+    $('#pv', main).textContent = c.length ? 'Reads as: \u201c' + c[cleanQ(inp.value) ? 1 : 0] + '\u201d' : '';
   }
   inp.addEventListener('input', function () { f.ques = inp.value; preview(); }); preview();
   inp.focus();
@@ -793,7 +817,7 @@ function pickScreen(main, bar, s) {
     draftSheet(s); if (s.guessed) s.guessed.door = false; save(); go('sheet', s.id); }; });
   bar.innerHTML = '<button class="btn quiet" id="back">Back</button><button class="btn quiet" id="own">Write it myself</button>';
   $('#back', bar).onclick = function () { go('ques', s.id); };
-  $('#own', bar).onclick = function () { go('say', s.id); };
+  $('#own', bar).onclick = function () { s.moment = c[0]; s.title = s.moment.slice(0, 46); save(); go('say', s.id); };
 }
 
 // ---------- screen two: the sheet, fixed by tapping ----------
@@ -1138,7 +1162,7 @@ function settings(main, bar) {
     '<div class="rowi" id="rImport"><div><b>Restore from a backup</b><small>Replaces what is on this device</small></div><span class="pill">import</span></div>' +
     '<div class="rowi" id="rReset"><div><b>Start over</b><small>Removes every sheet on this device. The lamp stays.</small></div><span class="pill bad">reset</span></div></div>' +
     '<h2>Where your sheets live</h2><p class="xs">On this device only. No account and no server, so nothing to leak and nothing to go down. Back up before you change phones.</p>' +
-    '<p class="xs" style="margin-top:14px">The Good Part, the sheet. Companion to the book by John Schuster.</p>' +
+    '<p class="xs" style="margin-top:14px">The Good Part, the sheet. Build ' + BUILD + '. Companion to the book by John Schuster.</p>' +
     '<input type="file" id="fileIn" accept="application/json" class="hidden">'));
   if (DEMO || !db.lic.unlocked) $('#rLic', main).onclick = function () { go('unlock'); };
   $('#rTheme', main).onclick = toggleTheme;
@@ -1192,5 +1216,5 @@ if (has('Preferences')) {
 } else if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();
 
-window.TGP = { go: go, db: function () { return db; }, check: checkMoment, draft: draftSheet, classify: classify, cands: candidates, actFrom: actFrom, warn: actWarning };
+window.TGP = { go: go, db: function () { return db; }, check: checkMoment, draft: draftSheet, classify: classify, cands: candidates, actFrom: actFrom, warn: actWarning, build: BUILD };
 })();
