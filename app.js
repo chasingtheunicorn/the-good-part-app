@@ -380,7 +380,7 @@ function seasonStrip() {
       : (12 - done.length) + ' to go. Only the fails are worth re-reading.') + '</p>';
 }
 function card(img, ey, title, body, acts) {
-  return '<div class="hero"><div class="band" style="background-image:url(' + JSON.stringify(IMG[img]) + ')">' +
+  return '<div class="hero"><div class="band" style="background-image:url(&quot;' + IMG[img] + '&quot;)">' +
     '<div class="ey">' + ey + '</div></div><div class="body"><h2 class="t">' + title + '</h2>' +
     '<p>' + body + '</p><div class="act">' + acts + '</div></div></div>';
 }
