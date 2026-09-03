@@ -54,7 +54,7 @@ var CHANGE = /\b(hold[s]?|light[s]?|lit|open[s]?|opened|catch(es)?|caught|break[
 var PLAN = /\b(visit\w*|tour\w*|trip|going to|go to|goes to|went to|attend\w*|watch\w*|see the|see a|seeing the|day at|night at|afternoon at|weekend at|time at|head(ing)? to|drive to|fly to|check out)\b/i;
 // A moment needs one of these: something turns, or a person meets it.
 // An outcome inside the sentence rescues it from being a plan: something is already decided by it.
-var OUTCOME = /\b(is (free|empty|open|on|off|gone|done)|holds?|lights?|lit|crumbl\w*|lands?|first try|finds? out|found out|turns? out|whether|works?|worked|fits?|catches|caught|comes? (on|off)|came on|comes? off clean)\b/i;
+var OUTCOME = /\b(is (free|empty|open|on|off|gone|done)|holds?|lights?|lit|crumbl\w*|lands?|first try|finds? out|found out|turns? out|whether|works?|worked|fits?|catches|caught|comes? (on|off)|came on|comes? off clean)\b|\b(is|are|will|does|do|did|can|could|was|were|has|have) [^?]{2,60}\?/i;
 var PERSON = /\b(face|says?|said|tells?|told|laugh\w*|cries|cried|reacts?|reaction|realis\w+|realiz\w+|his |her |their |my |our )\b/i;
 var TURN = /\b(first|finally|when|the moment|as soon as|until|then|after two years|at last|for the first time)\b/i;
 
@@ -71,7 +71,7 @@ function checkMoment(text) {
     : isPlan ? { s: -1, why: 'That is where you will be, not what happens. Which second of it are you waiting for?' }
     : { s: 1, why: 'It happens somewhere, visibly.' });
   // 2 — does something change
-  var hasChange = (CHANGE.test(t) || TURN.test(t)) && !isPlan;
+  var hasChange = (CHANGE.test(t) || TURN.test(t) || /\?\s*$/.test(t)) && !isPlan;
   out.push(!t ? { s: 0, why: '' }
     : hasChange ? { s: 1, why: 'The frame is different after than before.' }
     : isPlan ? { s: -1, why: 'A plan has no turn in it yet. What do you not know until you get there?' }

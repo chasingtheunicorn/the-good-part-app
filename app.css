@@ -244,3 +244,5 @@ select{width:100%;padding:11px 8px;border:1.5px solid var(--rule);border-radius:
 @media print{.top,.rail,.bar,.noprint{display:none!important}main{padding:0;max-width:none}body{background:#fff}}
 
 .lnk{background:none;border:0;padding:0;font:inherit;color:var(--accent);text-decoration:underline;cursor:pointer}
+
+[hidden]{display:none!important}
