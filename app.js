@@ -49,6 +49,13 @@ var DAYS = [['today', 0], ['tomorrow', 1], ['in two days', 2], ['this weekend', 
 var DURATION = /\b(day|days|trip|weekend|morning|afternoon|evening|holiday|vacation|week|weeks|month|year|summer|winter|session|hours|hanging out|exploring|relaxing|chilling|our time)\b/i;
 var ABSTRACT = /^(the |a |an |our |my )?(love|joy|happiness|memories|memory|fun|the experience|experience|journey|adventure|vibes|energy|beauty|life|freedom|connection|growth)\b/i;
 var CHANGE = /\b(hold[s]?|light[s]?|lit|open[s]?|opened|catch(es)?|caught|break[s]?|broke|land[s]?|landed|work[s]?|worked|start[s]?|started|arriv\w+|finish\w+|snap[s]?|fall[s]?|fell|win[s]?|won|fit[s]?|turn[s]?|turned|crumbl\w+|arrive|comes? on|came on|arrives|says?|said|admits?|admitted|arrived|arriving|first try|goes? in|went in|clicks?|clicked|sits?|sat|stands?|stood|stops?|stopped|realis\w+|realiz\w+|sees? it|saw it|gets? it|got it|see(s|ing)?|saw|find(s|ing)? out|found out|turns? out|whether|is (free|empty|open|on)|lands?)\b/i;
+// A plan: where you will be and roughly what you will do. Rung two of the book's
+// ladder (p.24) — a verb, with a date, and still not a video.
+var PLAN = /\b(visit\w*|tour\w*|trip|going to|go to|goes to|went to|attend\w*|watch\w*|see the|see a|seeing the|day at|night at|afternoon at|weekend at|time at|head(ing)? to|drive to|fly to|check out)\b/i;
+// A moment needs one of these: something turns, or a person meets it.
+// An outcome inside the sentence rescues it from being a plan: something is already decided by it.
+var OUTCOME = /\b(is (free|empty|open|on|off|gone|done)|holds?|lights?|lit|crumbl\w*|lands?|first try|finds? out|found out|turns? out|whether|works?|worked|fits?|catches|caught|comes? (on|off)|came on|comes? off clean)\b/i;
+var PERSON = /\b(face|says?|said|tells?|told|laugh\w*|cries|cried|reacts?|reaction|realis\w+|realiz\w+|his |her |their |my |our )\b/i;
 var TURN = /\b(first|finally|when|the moment|as soon as|until|then|after two years|at last|for the first time)\b/i;
 
 function checkMoment(text) {
@@ -57,14 +64,17 @@ function checkMoment(text) {
   // 1 — can a camera point at it
   var isDur = DURATION.test(t) && !CHANGE.test(t);
   var isAbs = ABSTRACT.test(t);
+  var isPlan = PLAN.test(t) && !PERSON.test(t) && !OUTCOME.test(t);
   out.push(!t ? { s: 0, why: '' }
     : isAbs ? { s: -1, why: 'That names a feeling, not a second. What would the camera see when it happens?' }
     : isDur ? { s: -1, why: 'That is a stretch of time, and a camera cannot hold a duration. Which second of it?' }
+    : isPlan ? { s: -1, why: 'That is where you will be, not what happens. Which second of it are you waiting for?' }
     : { s: 1, why: 'It happens somewhere, visibly.' });
   // 2 — does something change
-  var hasChange = CHANGE.test(t) || TURN.test(t);
+  var hasChange = (CHANGE.test(t) || TURN.test(t)) && !isPlan;
   out.push(!t ? { s: 0, why: '' }
     : hasChange ? { s: 1, why: 'The frame is different after than before.' }
+    : isPlan ? { s: -1, why: 'A plan has no turn in it yet. What do you not know until you get there?' }
     : { s: -1, why: 'Nothing turns in that sentence. Add what is different afterward.' });
   // 3 — could a stranger retell it in one line
   var clauses = (t.match(/,/g) || []).length + (/\b(because|so that|which|although|but)\b/i.test(t) ? 1 : 0);
@@ -75,6 +85,52 @@ function checkMoment(text) {
   return out;
 }
 var CHECK_TITLES = ['I can point a camera at it', 'Something changes in it', 'A stranger could retell it in one line'];
+
+// ---------- the third rung: noun, verb, question (book p.24) ----------
+// Each door finds out in a different place, so each asks its own second question
+// and composes the moment its own way.
+var RUNG = {
+  '1': { who: 'What is the thing, and what does it do once?',
+         whoEg: 'the still starts running',
+         q: 'What do you not know until it happens?',
+         qEg: 'whether it comes off clean' },
+  '2': { who: 'Who is meeting it, and what happens to them?',
+         whoEg: 'the distiller tastes the first pour',
+         q: 'What do you not know until you see their face?',
+         qEg: 'whether this batch is any good' },
+  '3': { who: 'Who is talking, and about what?',
+         whoEg: 'he talks about the batch he lost',
+         q: 'What are you waiting to hear them admit?',
+         qEg: 'that he nearly quit that year' },
+  '4': { who: 'Who is trying it, and what is the attempt?',
+         whoEg: 'she pulls the first cut by hand',
+         q: 'What do you not know until it is over?',
+         qEg: 'whether she gets it in one' }
+};
+function candidates(door, act, ques) {
+  act = (act || '').replace(/[.!]$/, '').trim();
+  ques = (ques || '').replace(/^(whether|if)\s+/i, '').replace(/[.?!]$/, '').trim();
+  var out = [];
+  if (act && ques) {
+    if (door === '1') {
+      out.push(act.charAt(0).toUpperCase() + act.slice(1) + ' \u2014 and whether ' + ques + '.');
+      out.push('The second we find out whether ' + ques + '.');
+      out.push(act.charAt(0).toUpperCase() + act.slice(1) + ', and it holds.');
+    } else if (door === '3') {
+      out.push('The moment he says it: ' + ques + '.');
+      out.push(act.charAt(0).toUpperCase() + act.slice(1) + ' \u2014 and the face when it lands.');
+      out.push('When the room hears ' + ques + '.');
+    } else {
+      out.push('The face when ' + act + '.');
+      out.push(act.charAt(0).toUpperCase() + act.slice(1) + ' \u2014 and whether ' + ques + '.');
+      out.push('The second somebody finds out whether ' + ques + '.');
+    }
+  } else if (act) {
+    out.push('The face when ' + act + '.');
+    out.push(act.charAt(0).toUpperCase() + act.slice(1) + ', and what changes.');
+  }
+  return out;
+}
 
 // ---------- 4. one sentence, and the app drafts the rest ----------
 var DOOR_HINTS = [
@@ -330,8 +386,8 @@ function render() {
   var s = view.id ? bySheet(view.id) : null;
   var R = { home: home, say: say, sheet: sheetScreen, after: after, numbers: numbersScreen,
             log: logScreen, season: season, diagnose: diagnose, settings: settings, unlock: unlock,
-            plan: planScreen, shown: shownScreen }[view.screen] || home;
-  if (!s && ['say', 'sheet', 'after', 'numbers', 'plan', 'shown'].indexOf(view.screen) >= 0) return go('home');
+            plan: planScreen, shown: shownScreen, find: findScreen }[view.screen] || home;
+  if (!s && ['say', 'sheet', 'after', 'numbers', 'plan', 'shown', 'find'].indexOf(view.screen) >= 0) return go('home');
   R(main, bar, s);
 }
 // ---------- one state at a time ----------
@@ -551,9 +607,19 @@ function say(main, bar, s) {
         (c.why ? '<small>' + esc(c.why) + '</small>' : '') + '</div></div>'; }).join('') +
       (r.every(function (c) { return c.s === 1; })
         ? '<div class="note"><b>All three. That is a moment.</b> The sheet is one tap away.</div>'
-        : ta.value.trim() ? '<div class="note stop"><b>That reads as material, not a moment.</b> Material is fine, it just is not the thing anyone will carry. You can go on anyway, but the book would send you back out.</div>' : '');
+        : ta.value.trim()
+          ? '<div class="note stop"><b>' + (PLAN.test(ta.value) && !PERSON.test(ta.value) && !OUTCOME.test(ta.value)
+              ? 'That is a plan, and that is where almost everybody starts.'
+              : 'That reads as material, not a moment.') +
+            '</b> The book calls this the second rung: a verb, with a date, and still not a video. There is a second inside it, and three questions will find it.' +
+            '<div class="row" style="margin-top:10px"><button class="btn go" id="findit">Help me find it</button></div></div>'
+          : '');
   }
-  ta.addEventListener('input', paint); paint(); ta.focus();
+  function wire() {
+    var f = $('#findit', main);
+    if (f) f.onclick = function () { s.moment = ta.value.trim(); s.title = s.moment.slice(0, 46); save(); go('find', s.id); };
+  }
+  ta.addEventListener('input', function () { paint(); wire(); }); paint(); wire(); ta.focus();
   var rec = null, micBtn = $('#mic', main);
   if (micBtn) micBtn.onclick = function () {
     if (rec) { rec.stop(); rec = null; return; }
@@ -567,6 +633,42 @@ function say(main, bar, s) {
     s.moment = ta.value.trim(); if (!s.moment) return ta.focus();
     s.title = s.moment.slice(0, 46); draftSheet(s); save(); go('sheet', s.id, 'fresh');
   };
+}
+
+// ---------- the finder: three questions that turn a plan into a moment ----------
+function findScreen(main, bar, s) {
+  var f = s.find || { door: s.door || guessDoor(s.moment), act: '', ques: '' };
+  var R = RUNG[f.door] || RUNG['2'];
+  main.appendChild(el('<p class="eyebrow e">The third rung</p><h1>There is a second inside that.</h1>' +
+    '<p>You wrote: \u201c' + esc(s.moment) + '\u201d. That is the noun and the verb. What is missing is the question \u2014 the thing you do not know until it happens, which is what tells you when to press record.</p>' +
+    '<label class="lbl">Which door is this?</label><div class="who" id="doors">' +
+      DOORS.map(function (d) { return '<button data-d="' + d[0] + '"' + (f.door === d[0] ? ' class="on"' : '') + '>' + d[1] + '</button>'; }).join('') + '</div>' +
+    '<div class="xs" style="margin:-2px 0 6px">' + (DOORS[+f.door - 1] || ['', '', ''])[2] + '</div>' +
+    '<label class="lbl" for="act">' + R.who + '</label>' +
+    '<input type="text" id="act" value="' + esc(f.act) + '" placeholder="' + esc(R.whoEg) + '">' +
+    '<label class="lbl e" for="ques">' + R.q + '</label>' +
+    '<input type="text" id="ques" value="' + esc(f.ques) + '" placeholder="' + esc(R.qEg) + '">' +
+    '<div class="note"><b>This is the whole trick.</b> If you know the answer before you arrive, there is no moment, only an errand. If you would be genuinely pleased or genuinely annoyed either way, you have one.</div>' +
+    '<div id="cands"></div>'));
+  function draw() {
+    var c = candidates(f.door, $('#act', main).value, $('#ques', main).value);
+    $('#cands', main).innerHTML = c.length
+      ? '<h2>Pick the one you would say out loud</h2><p class="xs">Tap to use it, then edit anything.</p><div class="opts" id="pick">' +
+        c.map(function (x, i) { return '<button class="opt" data-i="' + i + '"><b>' + esc(x) + '</b></button>'; }).join('') + '</div>'
+      : '';
+    $$('#pick button', main).forEach(function (b) { b.onclick = function () {
+      s.moment = c[+b.dataset.i]; s.title = s.moment.slice(0, 46); s.door = f.door;
+      s.find = f; s.shots = null; s.promise = ''; s.feeling = ''; s.mode = '';
+      draftSheet(s); save(); go('sheet', s.id); }; });
+  }
+  $$('#doors button', main).forEach(function (b) { b.onclick = function () {
+    f.door = b.dataset.d; s.find = f; save(); go('find', s.id); }; });
+  ['act', 'ques'].forEach(function (id) { $('#' + id, main).addEventListener('input', function () {
+    f[id === 'act' ? 'act' : 'ques'] = $('#' + id, main).value; draw(); }); });
+  draw();
+  bar.innerHTML = '<button class="btn quiet" id="back">Back</button><button class="btn go" id="own">Write my own</button>';
+  $('#back', bar).onclick = function () { s.find = f; save(); go('say', s.id); };
+  $('#own', bar).onclick = function () { s.find = f; save(); go('say', s.id); };
 }
 
 // ---------- screen two: the sheet, fixed by tapping ----------
