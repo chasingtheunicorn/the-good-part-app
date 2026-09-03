@@ -113,7 +113,7 @@ function low(x) { return /^(The|A|An|My|Our|His|Her|Their|He|She|They|We|You|Som
 // pour" has one already, typed lowercase. Only a bare verb gets "we".
 var BASEVERB = /^(see|watch|catch|hear|try|taste|meet|find|fix|open|hand|pull|pour|start|run|play|sing|throw|race|ask|tell|make|build|finish|install|paint|cook|bake|plant|light|switch|plug|test|drive|ride|climb|jump|swim|walk|go|get|take|give|show|bring|cut|serve|wait|arrive|land|step|turn|lift|carry|read|write|call|answer|say|do|put|set|hold|hit|kick|score|win|lose|check|look|listen|smell|feel|touch|press|flip|drop|pick|unbox|reveal|unveil|surprise|greet|hug|kiss|film|record|shoot|let|help|stand|sit|come|leave|walk|eat|drink|sip)\b/i;
 var SMALLWORD = /^(the|a|an|my|our|his|her|their|he|she|they|we|i|you|it|someone|somebody|everyone|nobody|this|that|these|those|one|two|three|dad|mom|mum|grandma|grandpa|mr|mrs|ms|dr|my)\b/i;
-var BUILD = 13;
+var BUILD = 14;
 // "try's" is "tries" when the word is a verb; "dad's" stays.
 function conj(v) { v = v.toLowerCase(); if (/[^aeiou]y$/.test(v)) return v.slice(0, -1) + 'ies'; if (/(s|x|ch|sh|o)$/.test(v)) return v + 'es'; return v + 's'; }
 function fixVerbs(t) {
@@ -692,6 +692,13 @@ function newSheet() {
   if (empty) return go('say', empty.id);
   var n = blank(); db.sheets.push(n); save(); go('say', n.id);
 }
+// Start this sheet over: the sentence stays, everything drafted from it goes.
+function restartSheet(s) {
+  if (!confirm('Start this sheet over? Your sentence stays. The door, the shots, the day and tonight\u2019s lines are cleared.')) return;
+  s.door = ''; s.mode = ''; s.promise = ''; s.feeling = ''; s.win = ''; s.shots = null; s.plan = null;
+  s.find = null; s.guessed = {}; s.night = ['', '', '']; s.posted = ''; s.week = null; s.numbers = null; s.shown = null;
+  save(); go('say', s.id);
+}
 // Where a sheet picks up from, given its state.
 function resume(s) {
   var st = stateOf(s);
@@ -867,7 +874,9 @@ function sheetScreen(main, bar, s) {
       return '<label class="check"><input type="checkbox" data-i="' + i + '"' + (sh.done ? ' checked' : '') +
         '><span><b>' + SHOTQ[i][0] + ' · ' + sh.size + '</b><small>' + esc(sh.text) +
         '</small></span></label>'; }).join('') + '</div>' +
-    '<div id="editor"></div>'));
+    '<div id="editor"></div>' +
+    (s.sample ? '' : '<div class="row" style="margin-top:18px"><button class="btn quiet" id="restart">Start this sheet over</button></div>')));
+  var rs = $('#restart', main); if (rs) rs.onclick = function () { restartSheet(s); };
 
   $$('.field', main).forEach(function (b) { b.onclick = function () { editField(main, s, b.dataset.f); }; });
   if (open) editField(main, s, open);
@@ -903,9 +912,15 @@ function shotsScreen(main, bar, s) {
       : '<div class="note e"><b>' + esc(s.win || 'Twenty minutes, once') + '.</b> Shoot the place first, the moment when it comes, the door last. Tick each as it is in the can.</div>') +
     '<div id="shots">' + (s.shots || []).map(function (sh, i) {
       return '<label class="check"><input type="checkbox" data-i="' + i + '"' + (sh.done ? ' checked' : '') +
-        '><span><b>' + SHOTQ[i][0].replace(/^(\d) /, '$1. ') + '</b><small>' + esc(sh.text) + '</small><small>' + SHOTQ[i][1] + ' Size: ' + sh.size + '.</small></span></label>'; }).join('') + '</div>'));
+        '><span><b>' + SHOTQ[i][0].replace(/^(\d) /, '$1. ') + '</b><small>' + esc(sh.text) + '</small><small>' + SHOTQ[i][1] + ' Size: ' + sh.size + '.</small></span></label>'; }).join('') + '</div>' +
+    '<div class="row" style="margin-top:18px">' + (done ? '<button class="btn quiet" id="untick">Restart the day</button>' : '') +
+    '<button class="btn quiet" id="restart">Start this sheet over</button></div>'));
   $$('#shots input', main).forEach(function (c) { c.onchange = function () {
     s.shots[+c.dataset.i].done = c.checked; save(); render(); }; });
+  var ut = $('#untick', main); if (ut) ut.onclick = function () {
+    if (!confirm('Untick all six and shoot the day again?')) return;
+    s.shots.forEach(function (x) { x.done = false; }); save(); render(); };
+  $('#restart', main).onclick = function () { restartSheet(s); };
   bar.innerHTML = '<button class="btn quiet" id="back">Home</button><button class="btn quiet" id="sheet">The sheet</button>' +
     '<button class="btn go" id="next">' + (left === 0 ? 'Done for today' : 'Later') + '</button>';
   $('#back', bar).onclick = function () { go('home'); };
@@ -1179,15 +1194,22 @@ function settings(main, bar) {
     '<div class="rowi" id="rTheme"><div><b>Appearance</b><small>Light, dark, or whatever the phone is doing</small></div><span class="pill">switch</span></div>' +
     '<div class="rowi" id="rExport"><div><b>Back up my sheets</b><small>One file with every sheet, the log and the numbers</small></div><span class="pill">export</span></div>' +
     '<div class="rowi" id="rImport"><div><b>Restore from a backup</b><small>Replaces what is on this device</small></div><span class="pill">import</span></div>' +
-    '<div class="rowi" id="rReset"><div><b>Start over</b><small>Removes every sheet on this device. The lamp stays.</small></div><span class="pill bad">reset</span></div></div>' +
+    '<div class="rowi" id="rReset"><div><b>Wipe my data</b><small>Removes every sheet on this device. The lamp stays. Back up first.</small></div><span class="pill bad">wipe</span></div></div>' +
+    '<div id="wipe"></div>' +
     '<h2>Where your sheets live</h2><p class="xs">On this device only. No account and no server, so nothing to leak and nothing to go down. Back up before you change phones.</p>' +
     '<p class="xs" style="margin-top:14px">The Good Part, the sheet. Build ' + BUILD + '. Companion to the book by John Schuster.</p>' +
     '<input type="file" id="fileIn" accept="application/json" class="hidden">'));
   if (DEMO || !db.lic.unlocked) $('#rLic', main).onclick = function () { go('unlock'); };
   $('#rTheme', main).onclick = toggleTheme;
   $('#rReset', main).onclick = function () {
-    if (!confirm('Remove every sheet on this device? The lamp stays. This cannot be undone.')) return;
-    db.sheets = db.sheets.filter(function (x) { return x.sample; }); save(); go('home');
+    var n = mine().length;
+    $('#wipe', main).innerHTML = '<div class="note stop" style="margin-top:12px"><b>This removes ' + n + ' sheet' + (n === 1 ? '' : 's') + ' and cannot be undone.</b> Back up first if any of it matters.' +
+      '<div class="row" style="margin-top:10px"><button class="btn quiet" id="wipeNo">Keep my data</button><button class="btn go" id="wipeYes">Wipe it</button></div></div>';
+    $('#wipeNo', main).onclick = function () { $('#wipe', main).innerHTML = ''; };
+    $('#wipeYes', main).onclick = function () {
+      if (!confirm('Last check: wipe every sheet on this device?')) return;
+      db.sheets = db.sheets.filter(function (x) { return x.sample; }); save(); go('home');
+    };
   };
   $('#rExport', main).onclick = function () {
     var data = JSON.stringify(db, null, 2), name = 'the-good-part-' + new Date().toISOString().slice(0, 10) + '.json';
