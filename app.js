@@ -532,7 +532,7 @@ function home(main, bar) {
       'Ask what the moment was and write down what they say. This is the coaching a book cannot give you.',
       '<button class="btn go" id="a1">Log what they said</button><button class="btn quiet" id="a2">Skip</button>');
   }
-  main.appendChild(el('<p class="eyebrow">The Good Part</p>' + html + seasonStrip() +
+  main.appendChild(el('<p class="eyebrow">Today</p>' + html + seasonStrip() +
     '<div class="row" style="margin-top:16px"><button class="btn quiet" id="btnDiag">Something went wrong</button></div>' +
     '<p class="xs" style="margin-top:14px">Sheets stay on this device.' +
       (DEMO ? ' Test build: everything is open.' : db.lic.unlocked ? ' Unlocked.' :
@@ -1096,7 +1096,7 @@ function settings(main, bar) {
   var t = trialLeft();
   main.appendChild(el('<p class="eyebrow q">Settings</p><h1>Your copy.</h1>' +
     '<div class="rows"><div class="rowi" id="rLic"><div><b>' +
-      (DEMO ? 'Test build · nothing is gated' : db.lic.unlocked ? 'Unlocked' : t > 0 ? 'Book code · ' + t + ' day' + (t === 1 ? '' : 's') + ' left' : Math.max(0, FREE_VIDEOS - posted()) + ' free videos left') +
+      (DEMO ? 'Test build: nothing is gated' : db.lic.unlocked ? 'Unlocked' : t > 0 ? 'Book code: ' + t + ' day' + (t === 1 ? '' : 's') + ' left' : Math.max(0, FREE_VIDEOS - posted()) + ' free videos left') +
       '</b><small>' + (DEMO ? 'Tap to see the unlock screen' : db.lic.unlocked ? 'One-time purchase, this device' : t > 0 ? 'Then ' + PRICE + ' once' : PRICE + ' unlocks everything') +
       '</small></div>' + (db.lic.unlocked ? '<span class="pill ok">paid</span>' : '<span class="pill due">unlock</span>') + '</div>' +
     '<div class="rowi" id="rTheme"><div><b>Appearance</b><small>Light, dark, or whatever the phone is doing</small></div><span class="pill">switch</span></div>' +
@@ -1104,7 +1104,7 @@ function settings(main, bar) {
     '<div class="rowi" id="rImport"><div><b>Restore from a backup</b><small>Replaces what is on this device</small></div><span class="pill">import</span></div>' +
     '<div class="rowi" id="rReset"><div><b>Start over</b><small>Removes every sheet on this device. The lamp stays.</small></div><span class="pill bad">reset</span></div></div>' +
     '<h2>Where your sheets live</h2><p class="xs">On this device only. No account and no server, so nothing to leak and nothing to go down. Back up before you change phones.</p>' +
-    '<p class="xs" style="margin-top:14px">The Good Part · the sheet · v2.0 · companion to the book by John Schuster</p>' +
+    '<p class="xs" style="margin-top:14px">The Good Part, the sheet. Companion to the book by John Schuster.</p>' +
     '<input type="file" id="fileIn" accept="application/json" class="hidden">'));
   if (DEMO || !db.lic.unlocked) $('#rLic', main).onclick = function () { go('unlock'); };
   $('#rTheme', main).onclick = toggleTheme;
