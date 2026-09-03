@@ -441,6 +441,12 @@ function render() {
             plan: planScreen, shown: shownScreen, ok: okScreen, verb: verbScreen, ques: quesScreen, pick: pickScreen, shots: shotsScreen }[view.screen] || home;
   if (!s && ['say', 'sheet', 'after', 'numbers', 'plan', 'shown', 'ok', 'verb', 'ques', 'pick', 'shots'].indexOf(view.screen) >= 0) return go('home');
   R(main, bar, s);
+  bar.parentNode.classList.toggle('empty', !bar.children.length);
+  var tab = { home: 'home', say: 'start', ok: 'start', verb: 'start', ques: 'start', pick: 'start',
+              log: 'sheets', sheet: 'sheets', plan: 'sheets', shots: 'sheets', after: 'sheets', numbers: 'sheets', shown: 'sheets', diagnose: 'sheets',
+              season: 'season' }[view.screen] || '';
+  $$('#tabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.t === tab); });
+  $('#btnMenu').classList.toggle('x', view.screen === 'settings');
 }
 // ---------- one state at a time ----------
 function allDone(s) { return (s.shots || []).length === 6 && s.shots.every(function (x) { return x.done; }); }
@@ -527,8 +533,7 @@ function home(main, bar) {
       '<button class="btn go" id="a1">Log what they said</button><button class="btn quiet" id="a2">Skip</button>');
   }
   main.appendChild(el('<p class="eyebrow">The Good Part</p>' + html + seasonStrip() +
-    '<div class="row" style="margin-top:16px"><button class="btn quiet" id="hist">All my sheets</button>' +
-    '<button class="btn quiet" id="btnDiag">Something went wrong</button></div>' +
+    '<div class="row" style="margin-top:16px"><button class="btn quiet" id="btnDiag">Something went wrong</button></div>' +
     '<p class="xs" style="margin-top:14px">Sheets stay on this device.' +
       (DEMO ? ' Test build: everything is open.' : db.lic.unlocked ? ' Unlocked.' :
        trialLeft() > 0 ? ' Book code: ' + trialLeft() + ' days left.' :
@@ -547,12 +552,8 @@ function home(main, bar) {
     if (st === 'post') return go('after', s.id);
     if (st === 'show') { s.shown = { role: '', said: '', match: null, skipped: true }; save(); return render(); }
   };
-  $('#hist', main).onclick = function () { go('log'); };
   $('#btnDiag', main).onclick = function () { go('diagnose', s ? s.id : null, null); };
-  bar.innerHTML = '<button class="btn quiet" id="set">Settings</button><button class="btn go" id="b2">' +
-    (st === 'idle' || st === 'wait' ? 'Start a sheet' : 'Carry on') + '</button>';
-  $('#set', bar).onclick = function () { go('settings'); };
-  $('#b2', bar).onclick = function () { (st === 'idle' || st === 'wait') ? newSheet() : (a1 && a1.click()); };
+  bar.innerHTML = '';
 }
 
 // ---------- the plan: a day, and what you already do just before ----------
@@ -637,7 +638,14 @@ function shownScreen(main, bar, s) {
 
 function newSheet() {
   if (!canStart()) return go('unlock');
+  var empty = mine().filter(function (x) { return !x.moment; })[0];
+  if (empty) return go('say', empty.id);
   var n = blank(); db.sheets.push(n); save(); go('say', n.id);
+}
+// Where a sheet picks up from, given its state.
+function resume(s) {
+  var st = stateOf(s);
+  return { idle: s.moment ? 'after' : 'say', plan: 'plan', shoot: 'shots', post: 'after', wait: 'after', due: 'after', show: 'shown' }[st] || 'sheet';
 }
 
 // ---------- step one: whatever you have ----------
@@ -792,10 +800,8 @@ function sheetScreen(main, bar, s) {
     s.shots[+c.dataset.i].done = c.checked; save();
     render(); }; });
 
-  bar.innerHTML = '<div class="row"><button class="btn quiet" id="home">' + (s.sample ? 'Home' : 'Home') +
-    '</button><button class="btn quiet" id="share">Share</button></div>' +
+  bar.innerHTML = '<div class="row"><button class="btn quiet" id="share">Share</button></div>' +
     '<button class="btn go" id="after">' + (s.sample ? 'Say mine' : (!s.plan || !s.plan.date) ? 'When?' : allDone(s) ? 'That night' : 'Shoot it') + '</button>';
-  $('#home', bar).onclick = function () { go('home'); };
   $('#share', bar).onclick = function () {
     var text = sheetText(s);
     if (has('Share')) return Cap.Plugins.Share.share({ title: 'My Day Sheet', text: text }).catch(function () {});
@@ -989,18 +995,25 @@ function diagnose(main, bar, s) {
 
 // ---------- log and season ----------
 function logScreen(main, bar) {
-  var rows = db.sheets.filter(function (s) { return s.posted; }).slice().reverse();
-  main.appendChild(el('<p class="eyebrow q">Working pages: the log</p><h1>The Week Test log</h1>' +
-    '<p>Twelve rows is about a season. This is the only record of whether you’re getting better, and it will disagree with your view counts, which is the point.</p>' +
-    '<div class="rows">' + (rows.length ? rows.map(function (s) {
-      return '<div class="rowi" data-id="' + s.id + '"><div><b>' + esc(s.title || s.moment) + '</b><small>Posted ' + fmt(s.posted) +
-        ' · ' + esc(s.length) + (s.week ? ' · named: “' + esc(s.week.answer) + '”' : '') + '</small></div>' + pill(s) + '</div>'; }).join('')
+  var all = mine().filter(function (s) { return s.moment; }).slice().reverse();
+  var open = all.filter(function (s) { return !s.posted; }), done = all.filter(function (s) { return s.posted; });
+  function row(s) {
+    var st = stateOf(s), sub = s.posted ? 'Posted ' + fmt(s.posted) + (s.week ? '. Named: \u201c' + esc(s.week.answer) + '\u201d' : '')
+      : { plan: 'No day set yet', shoot: (s.shots || []).filter(function (x) { return x.done; }).length + ' of 6 shot' + (s.plan && s.plan.date ? '. ' + esc(planLabel(s.plan)) : ''),
+          post: 'Shot. Not posted yet' }[st] || 'In progress';
+    return '<div class="rowi" data-id="' + s.id + '"><div><b>' + esc(s.title || s.moment) + '</b><small>' + sub + '</small></div>' + pill(s) + '</div>';
+  }
+  main.appendChild(el('<p class="eyebrow q">Sheets</p><h1>My sheets</h1>' +
+    '<p>Tap one to pick it up where it is. Twelve posted is about a season.</p>' +
+    (open.length ? '<h2>In progress</h2><div class="rows">' + open.map(row).join('') + '</div>' : '') +
+    '<h2>Posted</h2><div class="rows">' + (done.length ? done.map(row).join('')
       : '<div class="rowi"><small>Nothing posted yet. The first row starts the night you post.</small></div>') + '</div>' +
-    '<div class="note" style="margin-top:16px"><b>Read it after twelve.</b> Look only at the fails and ask what they have in common. Almost always the moment was chosen after the shoot instead of before it, or it was interesting to you and never visible to anyone else.</div>'));
-  $$('.rowi[data-id]', main).forEach(function (r) { r.onclick = function () { go('after', r.dataset.id); }; });
-  bar.innerHTML = '<button class="btn quiet" id="home">My sheets</button><button class="btn go" id="season">My season</button>';
-  $('#home', bar).onclick = function () { go('home'); };
-  $('#season', bar).onclick = function () { go('season'); };
+    '<div class="note" style="margin-top:16px"><b>Read the posted list after twelve.</b> Look only at the fails and ask what they have in common. Almost always the moment was chosen after the shoot instead of before it, or it was interesting to you and never visible to anyone else.</div>' +
+    '<div class="row" style="margin-top:14px"><button class="btn quiet" id="lamp">The book\u2019s example, the lamp</button></div>'));
+  $$('.rowi[data-id]', main).forEach(function (r) { r.onclick = function () { var s = bySheet(r.dataset.id); go(resume(s), s.id); }; });
+  $('#lamp', main).onclick = function () { go('sheet', LAMP.id); };
+  bar.innerHTML = '<button class="btn go" id="new">New sheet</button>';
+  $('#new', bar).onclick = newSheet;
 }
 function spark(vals, color, unit) {
   var w = 300, h = 92, pad = 8;
@@ -1058,9 +1071,7 @@ function season(main, bar) {
         return '<div class="rowi"><div><b>Door ' + d + ' · ' + ((DOORS[+d - 1] || ['', '?'])[1]) + '</b><small>' +
           b.p + ' of ' + b.n + ' passed</small></div><span class="pill' + (b.n >= 2 && b.p === b.n ? ' ok' : b.p === 0 ? ' bad' : '') +
           '">' + Math.round(b.p / b.n * 100) + '%</span></div>'; }).join('') + '</div>' : '')));
-  bar.innerHTML = '<button class="btn quiet" id="log">The log</button><button class="btn go" id="home">My sheets</button>';
-  $('#log', bar).onclick = function () { go('log'); };
-  $('#home', bar).onclick = function () { go('home'); };
+  bar.innerHTML = '';
 }
 
 // ---------- unlock and settings ----------
@@ -1090,12 +1101,17 @@ function settings(main, bar) {
       '</small></div>' + (db.lic.unlocked ? '<span class="pill ok">paid</span>' : '<span class="pill due">unlock</span>') + '</div>' +
     '<div class="rowi" id="rTheme"><div><b>Appearance</b><small>Light, dark, or whatever the phone is doing</small></div><span class="pill">switch</span></div>' +
     '<div class="rowi" id="rExport"><div><b>Back up my sheets</b><small>One file with every sheet, the log and the numbers</small></div><span class="pill">export</span></div>' +
-    '<div class="rowi" id="rImport"><div><b>Restore from a backup</b><small>Replaces what is on this device</small></div><span class="pill">import</span></div></div>' +
+    '<div class="rowi" id="rImport"><div><b>Restore from a backup</b><small>Replaces what is on this device</small></div><span class="pill">import</span></div>' +
+    '<div class="rowi" id="rReset"><div><b>Start over</b><small>Removes every sheet on this device. The lamp stays.</small></div><span class="pill bad">reset</span></div></div>' +
     '<h2>Where your sheets live</h2><p class="xs">On this device only. No account and no server, so nothing to leak and nothing to go down. Back up before you change phones.</p>' +
     '<p class="xs" style="margin-top:14px">The Good Part · the sheet · v2.0 · companion to the book by John Schuster</p>' +
     '<input type="file" id="fileIn" accept="application/json" class="hidden">'));
   if (DEMO || !db.lic.unlocked) $('#rLic', main).onclick = function () { go('unlock'); };
   $('#rTheme', main).onclick = toggleTheme;
+  $('#rReset', main).onclick = function () {
+    if (!confirm('Remove every sheet on this device? The lamp stays. This cannot be undone.')) return;
+    db.sheets = db.sheets.filter(function (x) { return x.sample; }); save(); go('home');
+  };
   $('#rExport', main).onclick = function () {
     var data = JSON.stringify(db, null, 2), name = 'the-good-part-' + new Date().toISOString().slice(0, 10) + '.json';
     if (has('Share')) return Cap.Plugins.Share.share({ title: name, text: data }).catch(function () {});
@@ -1111,8 +1127,7 @@ function settings(main, bar) {
       catch (err) { alert('That file did not read as a backup.'); } };
     r.readAsText(f);
   };
-  bar.innerHTML = '<button class="btn go" id="home">Done</button>';
-  $('#home', bar).onclick = function () { go('home'); };
+  bar.innerHTML = '';
 }
 function toggleTheme() {
   var r = document.documentElement, cur = r.getAttribute('data-theme');
@@ -1126,7 +1141,10 @@ function boot() {
   loadSync();
   try { var th = localStorage.getItem(THEME); if (th) document.documentElement.setAttribute('data-theme', th); } catch (e) {}
   $('#btnHome').onclick = function () { go('home'); };
-  $('#btnTheme').onclick = toggleTheme;
+  $('#btnMenu').onclick = function () { go(view.screen === 'settings' ? 'home' : 'settings'); };
+  $$('#tabs button').forEach(function (b) { b.onclick = function () {
+    var t = b.dataset.t;
+    if (t === 'home') go('home'); else if (t === 'start') newSheet(); else if (t === 'sheets') go('log'); else go('season'); }; });
   if (has('LocalNotifications')) Cap.Plugins.LocalNotifications.requestPermissions().catch(function () {});
   if (has('SplashScreen')) Cap.Plugins.SplashScreen.hide().catch(function () {});
   var due = db.sheets.filter(function (s) { return s.posted && !s.week && daysUntil(s.posted) <= 0; });
