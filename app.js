@@ -48,7 +48,7 @@ var DAYS = [['today', 0], ['tomorrow', 1], ['in two days', 2], ['this weekend', 
 // ---------- 2. the checks, which actually check ----------
 var DURATION = /\b(day|days|trip|weekend|morning|afternoon|evening|holiday|vacation|week|weeks|month|year|summer|winter|session|hours|hanging out|exploring|relaxing|chilling|our time)\b/i;
 var ABSTRACT = /^(the |a |an |our |my )?(love|joy|happiness|memories|memory|fun|the experience|experience|journey|adventure|vibes|energy|beauty|life|freedom|connection|growth)\b/i;
-var CHANGE = /\b(hold[s]?|light[s]?|lit|open[s]?|opened|catch(es)?|caught|break[s]?|broke|land[s]?|landed|work[s]?|worked|start[s]?|started|arriv\w+|finish\w+|snap[s]?|fall[s]?|fell|win[s]?|won|fit[s]?|turn[s]?|turned|crumbl\w+|arrive|comes? on|came on|arrives|says?|said|admits?|admitted|arrived|arriving|first try|go(es)? in(to)?|went in(to)?|hands? (it|them|over)|handed|takes? it|took it|clicks?|clicked|sits?|sat|stands?|stood|stops?|stopped|realis\w+|realiz\w+|sees? it|saw it|gets? it|got it|see(s|ing)?|saw|find(s|ing)? out|found out|turns? out|whether|is (free|empty|open|on)|lands?)\b/i;
+var CHANGE = /\b(hold[s]?|light[s]?|lit|open[s]?|opened|catch(es)?|caught|break[s]?|broke|land[s]?|landed|work[s]?|worked|start[s]?|started|arriv\w+|finish\w+|snap[s]?|fall[s]?|fell|win[s]?|won|fit[s]?|turn[s]?|turned|crumbl\w+|arrive|comes? on|came on|arrives|says?|said|admits?|admitted|arrived|arriving|first try|tastw+|go(es)? in(to)?|went in(to)?|hands? (it|them|over)|handed|takes? it|took it|clicks?|clicked|sits?|sat|stands?|stood|stops?|stopped|realis\w+|realiz\w+|sees? it|saw it|gets? it|got it|see(s|ing)?|saw|find(s|ing)? out|found out|turns? out|whether|is (free|empty|open|on)|lands?)\b/i;
 // A plan: where you will be and roughly what you will do. Rung two of the book's
 // ladder (p.24) — a verb, with a date, and still not a video.
 var PLAN = /\b(visit\w*|tour\w*|trip|going to|go to|goes to|went to|attend\w*|watch\w*|see the|see a|seeing the|day at|night at|afternoon at|weekend at|time at|head(ing)? to|drive to|fly to|check out)\b/i;
@@ -71,7 +71,7 @@ function checkMoment(text) {
     : isPlan ? { s: -1, why: 'That is where you will be, not what happens. Which second of it are you waiting for?' }
     : { s: 1, why: 'It happens somewhere, visibly.' });
   // 2 — does something change
-  var hasChange = (CHANGE.test(t) || TURN.test(t) || /\?\s*$/.test(t)) && !isPlan;
+  var hasChange = (CHANGE.test(t) || TURN.test(t) || /\?/.test(t)) && !isPlan;
   out.push(!t ? { s: 0, why: '' }
     : hasChange ? { s: 1, why: 'The frame is different after than before.' }
     : isPlan ? { s: -1, why: 'A plan has no turn in it yet. What do you not know until you get there?' }
@@ -109,10 +109,32 @@ var RUNG = {
 };
 function cap(x) { return x.charAt(0).toUpperCase() + x.slice(1); }
 function low(x) { return /^(The|A|An|My|Our|His|Her|Their|He|She|They|We|You|Some|Every|No)\b/.test(x) ? x.charAt(0).toLowerCase() + x.slice(1) : x; }
-// "see the first pour" has no subject; inside a sentence it needs one.
+// "see the first pour" starts with a bare verb and needs a subject; "john meets the
+// pour" has one already, typed lowercase. Only a bare verb gets "we".
+var BASEVERB = /^(see|watch|catch|hear|try|taste|meet|find|fix|open|hand|pull|pour|start|run|play|sing|throw|race|ask|tell|make|build|finish|install|paint|cook|bake|plant|light|switch|plug|test|drive|ride|climb|jump|swim|walk|go|get|take|give|show|bring|cut|serve|wait|arrive|land|step|turn|lift|carry|read|write|call|answer|say|do|put|set|hold|hit|kick|score|win|lose|check|look|listen|smell|feel|touch|press|flip|drop|pick|unbox|reveal|unveil|surprise|greet|hug|kiss|film|record|shoot|let|help|stand|sit|come|leave|walk|eat|drink|sip)\b/i;
+var SMALLWORD = /^(the|a|an|my|our|his|her|their|he|she|they|we|i|you|it|someone|somebody|everyone|nobody|this|that|these|those|one|two|three|dad|mom|mum|grandma|grandpa|mr|mrs|ms|dr|my)\b/i;
+function cleanAct(act) {
+  act = (act || '').trim().replace(/[.!]$/, '');
+  act = act.replace(/^(to|we will|we\u2019ll|we'll|i will|i\u2019ll|i'll|will|going to|gonna)\s+/i, '');
+  return act.trim();
+}
 function withSubject(act) {
-  return (/^[A-Z]/.test(act) || /^(the|a|an|my|our|his|her|their|he|she|they|we|i|you|someone|somebody|everyone|nobody|dad|mom|mum|grandma|grandpa|it)\b/i.test(act))
-    ? act : 'we ' + act;
+  act = cleanAct(act);
+  if (BASEVERB.test(act)) return 'we ' + act;
+  if (/^[a-z]/.test(act) && !SMALLWORD.test(act)) act = cap(act);   // a name typed lowercase
+  return act;
+}
+// The person in the act, if it opens with a name: "John meets the pour" -> John.
+function subjectOf(act) {
+  var m = withSubject(act).match(/^([A-Z][a-z]+)\b/);
+  return m && !/^(The|A|An|My|Our|His|Her|Their|He|She|They|We|I|You|It|Someone|Somebody|Everyone|Nobody|This|That)$/.test(m[1]) ? m[1] : null;
+}
+// Two things, or the future, will not sit inside "the face when".
+function actWarning(act) {
+  act = (act || '').trim(); if (!act) return '';
+  if (/\b(and then|and|then)\b/i.test(act)) return 'That is two things. Which one second? Say just that one.';
+  if (/\b(will|going to|gonna|\u2019ll|'ll)\b/i.test(act)) return 'Say it as if it is happening now: \u201cJohn tastes the pour\u201d, not \u201cJohn will taste it\u201d.';
+  return '';
 }
 function isDirectQ(q) {
   if (/^(is|are|will|does|do|can|could|did|was|were|has|have|would|should)\b/i.test(q)) return true;
@@ -120,7 +142,7 @@ function isDirectQ(q) {
 }
 function lowQ(q) { return /^I\b/.test(q) ? q : q.charAt(0).toLowerCase() + q.slice(1); }
 function candidates(door, act, ques) {
-  act = (act || '').replace(/[.!]$/, '').trim();
+  act = cleanAct(act);
   ques = (ques || '').replace(/[.?!]$/, '').trim();
   var out = [];
   if (!act) return out;
@@ -152,7 +174,7 @@ function candidates(door, act, ques) {
   } else {
     out.push('The face when ' + a + '.');
     out.push(Acap + ' \u2014 and ' + W + ques + '.');
-    out.push('The second somebody finds out ' + W + ques + '.');
+    out.push('The second ' + (subjectOf(act) || 'somebody') + ' finds out ' + W + ques + '.');
   }
   return out;
 }
@@ -714,10 +736,17 @@ function verbScreen(main, bar, s) {
     doorLine(f, main, s, 'verb') +
     '<label class="lbl e" for="act">' + R.who + '</label>' +
     '<input type="text" id="act" value="' + esc(f.act) + '" placeholder="' + esc(R.whoEg) + '">' +
-    '<div class="note"><b>Once, on a day, and you can stand in front of it.</b> Not what it is \u2014 what happens to it. Boring counts. Someday is not a date.</div>'));
+    '<p class="xs" id="warn" style="color:var(--ember);min-height:1.4em;margin-top:6px"></p>' +
+    '<div class="note"><b>One thing, as if it is happening now.</b> \u201cThe distiller tastes the first pour.\u201d Not two things, not \u201cwill\u201d. Not what it is \u2014 what happens to it, once, on a day.</div>' +
+    '<p class="xs" id="pv" style="min-height:1.4em"></p>'));
   wireDoor(f, main, s, 'verb');
   var inp = $('#act', main);
-  inp.addEventListener('input', function () { f.act = inp.value; });
+  function preview() {
+    var c = candidates(f.door, inp.value, '');
+    $('#pv', main).textContent = c.length ? 'Reads as: \u201c' + c[0] + '\u201d' : '';
+    $('#warn', main).textContent = actWarning(inp.value);
+  }
+  inp.addEventListener('input', function () { f.act = inp.value; preview(); }); preview();
   if (!f.act) inp.focus();
   bar.innerHTML = '<button class="btn quiet" id="back">Back</button><button class="btn go" id="next">Next</button>';
   $('#back', bar).onclick = function () { s.find = f; save(); go('say', s.id); };
@@ -733,9 +762,14 @@ function quesScreen(main, bar, s) {
     '<p class="xs">What happens: \u201c' + esc(f.act) + '\u201d</p>' +
     '<label class="lbl e" for="ques">' + R.q + '</label>' +
     '<input type="text" id="ques" value="' + esc(f.ques) + '" placeholder="' + esc(R.qEg) + '">' +
-    '<div class="note"><b>This is the whole trick.</b> If you already know the answer, it is an errand, not a moment. If you would be genuinely pleased or genuinely annoyed either way, you have one.</div>'));
+    '<div class="note"><b>This is the whole trick.</b> If you already know the answer, it is an errand, not a moment. If you would be genuinely pleased or genuinely annoyed either way, you have one.</div>' +
+    '<p class="xs" id="pv" style="min-height:1.4em"></p>'));
   var inp = $('#ques', main);
-  inp.addEventListener('input', function () { f.ques = inp.value; });
+  function preview() {
+    var c = candidates(f.door, f.act, inp.value);
+    $('#pv', main).textContent = c.length ? 'Reads as: \u201c' + c[inp.value.trim() ? 1 : 0] + '\u201d' : '';
+  }
+  inp.addEventListener('input', function () { f.ques = inp.value; preview(); }); preview();
   inp.focus();
   bar.innerHTML = '<button class="btn quiet" id="back">Back</button><button class="btn go" id="next">Show me the moment</button>';
   $('#back', bar).onclick = function () { s.find = f; save(); go('verb', s.id); };
@@ -1158,5 +1192,5 @@ if (has('Preferences')) {
 } else if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();
 
-window.TGP = { go: go, db: function () { return db; }, check: checkMoment, draft: draftSheet, classify: classify, cands: candidates, actFrom: actFrom };
+window.TGP = { go: go, db: function () { return db; }, check: checkMoment, draft: draftSheet, classify: classify, cands: candidates, actFrom: actFrom, warn: actWarning };
 })();
