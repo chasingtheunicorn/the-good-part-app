@@ -211,18 +211,18 @@ function draftFeeling(t, door) {
            '4': 'relief, not triumph — right when it comes off.' }[door];
 }
 function draftShots(moment, door) {
-  var m = (moment || 'the moment').replace(/[.!]$/, '');
+  var m = (moment || 'the moment').replace(/[.!?]$/, '');
   var D = {
-    '1': ['? — found in the edit: two seconds of ' + m, 'The room, the thing small in it. Shoot this first.',
-          'Me at it, then hands and the thing.', m + ' — recording before I reach for it.',
+    '1': ['Two seconds of the moment itself, out of context. Found in the edit.', 'The room, the thing small in it. Shoot this first.',
+          'Me at it, then hands and the thing.', m + '. Recording before I reach for it.',
           'Hands off it, and it holds. Two seconds.', 'One line down the lens: what it cost, what’s next.'],
-    '2': ['? — two seconds of the face, out of context', 'Where we are, wide. Shoot it as we arrive.',
-          'Getting there — one beat, closer.', m + ' — the face as it happens.',
+    '2': ['Two seconds of the face, out of context. Found in the edit.', 'Where we are, wide. Shoot it as we arrive.',
+          'Getting there. One beat, closer.', m + '. The face as it happens.',
           'The thing itself, two seconds, held.', 'One line on the way back.'],
-    '3': ['? — the sentence, out of context', 'The room, both people in it.', 'The question being asked.',
-          m + ' — the face as the words land.', 'The reaction, two seconds.', 'The line after. One line.'],
-    '4': ['? — the instant it lands, sliced out', 'The venue, wide, before.', 'The attempt — one beat.',
-          m + ' — the landing, and the face.', 'The room reacting. Hands, two seconds.', 'One line: what it took.']
+    '3': ['The sentence, out of context. Found in the edit.', 'The room, both people in it.', 'The question being asked.',
+          m + '. The face as the words land.', 'The reaction, two seconds.', 'The line after. One line.'],
+    '4': ['The instant it lands, sliced out. Found in the edit.', 'The venue, wide, before.', 'The attempt. One beat.',
+          m + '. The landing, and the face.', 'The room reacting. Hands, two seconds.', 'One line: what it took.']
   }[door] || [];
   var sizes = ['hands', 'room', 'body', 'face', 'hands', 'face'];
   return D.map(function (t, i) { return { text: t, size: sizes[i], done: false }; });
@@ -317,7 +317,7 @@ var LAMP = {
   promise: 'You can fix the thing you’ve been stepping around for two years.',
   feeling: 'the small, dumb satisfaction of a switch that works — right when the light holds.',
   shots: [
-    { text: '? — found in the edit. Two seconds of filament.', size: 'hands', done: true },
+    { text: 'Two seconds of filament, out of context. Found in the edit.', size: 'hands', done: true },
     { text: 'Hallway from the kitchen doorway, lamp small. FIRST.', size: 'room', done: true },
     { text: 'Me at the table, shade off → hands and the cord.', size: 'body', done: true },
     { text: 'Plug in, switch. Recording BEFORE I reach for it.', size: 'face', done: true },
@@ -438,8 +438,8 @@ function render() {
   var s = view.id ? bySheet(view.id) : null;
   var R = { home: home, say: say, sheet: sheetScreen, after: after, numbers: numbersScreen,
             log: logScreen, season: season, diagnose: diagnose, settings: settings, unlock: unlock,
-            plan: planScreen, shown: shownScreen, ok: okScreen, verb: verbScreen, ques: quesScreen, pick: pickScreen }[view.screen] || home;
-  if (!s && ['say', 'sheet', 'after', 'numbers', 'plan', 'shown', 'ok', 'verb', 'ques', 'pick'].indexOf(view.screen) >= 0) return go('home');
+            plan: planScreen, shown: shownScreen, ok: okScreen, verb: verbScreen, ques: quesScreen, pick: pickScreen, shots: shotsScreen }[view.screen] || home;
+  if (!s && ['say', 'sheet', 'after', 'numbers', 'plan', 'shown', 'ok', 'verb', 'ques', 'pick', 'shots'].indexOf(view.screen) >= 0) return go('home');
   R(main, bar, s);
 }
 // ---------- one state at a time ----------
@@ -499,17 +499,17 @@ function home(main, bar) {
       'A thing, a day out, a plan, or the moment itself. Start with whatever you have and the app walks it up to the one second that matters, then writes the sheet.',
       '<button class="btn go" id="a1">Start</button>');
   } else if (st === 'plan') {
-    html = card('plan', 'Next \u00b7 make it a plan', 'When are you shooting it?',
+    html = card('plan', 'Next: make it a plan', 'When are you shooting it?',
       'A day, and the thing you already do just before it. Deciding now is the difference between meaning to and doing it.',
       '<button class="btn go" id="a1">Set the day</button><button class="btn quiet" id="a2">See the sheet</button>');
   } else if (st === 'shoot') {
     var left = 6 - s.shots.filter(function (x) { return x.done; }).length;
-    html = card('shoot', 'Next \u00b7 ' + planLabel(s.plan),
+    html = card('shoot', 'Next: ' + planLabel(s.plan),
       left === 6 ? 'Six shots, then stop.' : left + ' shot' + (left === 1 ? '' : 's') + ' to go.',
       'Tick them as they land. When all six exist the camera goes away, and the rest of the day is yours.',
       '<button class="btn go" id="a1">Open my shots</button>');
   } else if (st === 'post') {
-    html = card('wait', 'Next \u00b7 it exists', 'Six shots. Now put it out.',
+    html = card('wait', 'Next: it exists', 'Six shots. Now put it out.',
       'Say what it is, don\u2019t sell what it is. Then tap posted and don\u2019t look at anything for seven days.',
       '<button class="btn go" id="a1">I posted it</button><button class="btn quiet" id="a2">Three lines first</button>');
   } else if (st === 'wait') {
@@ -526,18 +526,18 @@ function home(main, bar) {
       'Ask what the moment was and write down what they say. This is the coaching a book cannot give you.',
       '<button class="btn go" id="a1">Log what they said</button><button class="btn quiet" id="a2">Skip</button>');
   }
-  main.appendChild(el('<p class="eyebrow">The Good Part \u00b7 the sheet</p>' + html + seasonStrip() +
+  main.appendChild(el('<p class="eyebrow">The Good Part</p>' + html + seasonStrip() +
     '<div class="row" style="margin-top:16px"><button class="btn quiet" id="hist">All my sheets</button>' +
     '<button class="btn quiet" id="btnDiag">Something went wrong</button></div>' +
     '<p class="xs" style="margin-top:14px">Sheets stay on this device.' +
-      (DEMO ? ' Test build \u2014 everything is open.' : db.lic.unlocked ? ' Unlocked.' :
+      (DEMO ? ' Test build: everything is open.' : db.lic.unlocked ? ' Unlocked.' :
        trialLeft() > 0 ? ' Book code: ' + trialLeft() + ' days left.' :
        ' ' + Math.max(0, FREE_VIDEOS - posted()) + ' free videos left.') + '</p>'));
   var a1 = $('#a1', main), a2 = $('#a2', main);
   if (a1) a1.onclick = function () {
     if (st === 'idle' || st === 'wait') return newSheet();
     if (st === 'plan') return go('plan', s.id);
-    if (st === 'shoot') return go('sheet', s.id);
+    if (st === 'shoot') return go('shots', s.id);
     if (st === 'post') { s.posted = new Date().toISOString().slice(0, 10); save(); scheduleWeekTest(s); return go('after', s.id); }
     if (st === 'due') return go('after', s.id);
     if (st === 'show') return go('shown', s.id);
@@ -691,7 +691,7 @@ function okScreen(main, bar, s) {
 // ---------- step two: what happens (the verb, book p.23) ----------
 function doorLine(f, main, s, screen) {
   var d = DOORS[+f.door - 1] || DOORS[1];
-  return '<p class="xs" id="doorline">Sounds like <b>' + d[1].toLowerCase() + '</b> \u2014 ' + d[2] + ' <button class="lnk" id="chg">Not that?</button></p>' +
+  return '<p class="xs" id="doorline">Sounds like <b>' + d[1].toLowerCase() + '</b>: ' + d[2].charAt(0).toLowerCase() + d[2].slice(1) + ' <button class="lnk" id="chg">Not that?</button></p>' +
     '<div class="who" id="doors" hidden>' + DOORS.map(function (x) { return '<button data-d="' + x[0] + '"' + (f.door === x[0] ? ' class="on"' : '') + '>' + x[1] + '</button>'; }).join('') + '</div>';
 }
 function wireDoor(f, main, s, screen) {
@@ -701,7 +701,7 @@ function wireDoor(f, main, s, screen) {
 function verbScreen(main, bar, s) {
   var f = s.find || { door: guessDoor(s.moment), act: '', ques: '', kind: 'material' };
   var R = RUNG[f.door] || RUNG['2'], K = KIND[f.kind] || KIND.material;
-  main.appendChild(el('<p class="eyebrow">Step 1 of 2 \u00b7 what happens</p><h1>' + K[0] + '</h1><p>' + K[1] + '</p>' +
+  main.appendChild(el('<p class="eyebrow">Step 1 of 2: what happens</p><h1>' + K[0] + '</h1><p>' + K[1] + '</p>' +
     '<p class="xs">You said: \u201c' + esc(s.moment) + '\u201d</p>' +
     doorLine(f, main, s, 'verb') +
     '<label class="lbl e" for="act">' + R.who + '</label>' +
@@ -720,7 +720,7 @@ function verbScreen(main, bar, s) {
 function quesScreen(main, bar, s) {
   var f = s.find; if (!f || !f.act) return go('verb', s.id);
   var R = RUNG[f.door] || RUNG['2'];
-  main.appendChild(el('<p class="eyebrow">Step 2 of 2 \u00b7 what is in doubt</p><h1>' + R.q + '</h1>' +
+  main.appendChild(el('<p class="eyebrow">Step 2 of 2: what is in doubt</p><h1>' + R.q + '</h1>' +
     '<p>Don\u2019t ask what you\u2019d like to do. Ask what you\u2019d like to know. The answer is the second you press record for.</p>' +
     '<p class="xs">What happens: \u201c' + esc(f.act) + '\u201d</p>' +
     '<label class="lbl e" for="ques">' + R.q + '</label>' +
@@ -743,7 +743,7 @@ function pickScreen(main, bar, s) {
     '<div class="opts" id="pick">' + c.map(function (x, i) {
       var r = checkMoment(x), ok = r.filter(function (k) { return k.s === 1; }).length;
       return '<button class="opt" data-i="' + i + '"><b>' + esc(x) + '</b><small>' +
-        r.map(function (k, j) { return (k.s === 1 ? '\u2713 ' : '\u00b7 ') + ['camera', 'something turns', 'one line'][j]; }).join(' \u00a0 ') + '</small></button>'; }).join('') + '</div>' +
+        r.map(function (k, j) { return (k.s === 1 ? '\u2713 ' : '! ') + ['camera', 'something turns', 'one line'][j]; }).join(' \u00a0 ') + '</small></button>'; }).join('') + '</div>' +
     '<p class="xs" style="margin-top:14px">Started from: \u201c' + esc(f.said || s.moment) + '\u201d</p>'));
   $$('#pick button', main).forEach(function (b) { b.onclick = function () {
     s.moment = c[+b.dataset.i]; s.title = s.moment.slice(0, 46); s.door = f.door;
@@ -759,7 +759,7 @@ function field(k, val, opts) {
   opts = opts || {};
   return '<button class="field" data-f="' + k + '"><div class="k' + (opts.e ? ' e' : '') + '">' + opts.label +
     (opts.guess ? '<span class="guess">guessed</span>' : '') + '</div><div class="v' + (opts.plain ? ' plain' : '') + '">' +
-    esc(val || '—') + '</div></button>';
+    esc(val || 'Tap to set') + '</div></button>';
 }
 function sheetScreen(main, bar, s) {
   var g = s.guessed || {};
@@ -772,14 +772,14 @@ function sheetScreen(main, bar, s) {
       : '<p>Drafted from your sentence. Tap anything to change it. Nothing here needs typing unless the app guessed badly.</p>') +
     field('moment', s.moment, { label: 'My moment', e: true }) +
     field('door', 'Door ' + s.door + ' · ' + (DOORS[+s.door - 1] || ['', ''])[1], { label: 'Door', guess: g.door, plain: true }) +
-    field('mode', s.mode + (s.mode === 'Found' ? ' — plan the setting and the ending only' : ' — you get a second take'), { label: 'Made or Found', guess: g.mode, plain: true }) +
+    field('mode', s.mode + (s.mode === 'Found' ? '. Plan the setting and the ending only.' : '. You get a second take.'), { label: 'Made or Found', guess: g.mode, plain: true }) +
     field('length', s.length, { label: 'Length', plain: true }) +
     field('win', s.win, { label: 'Filming window', e: true, guess: g.win, plain: true }) +
     field('promise', s.promise, { label: 'The promise', guess: g.promise }) +
     field('feeling', s.feeling, { label: 'The feeling', guess: g.feeling }) +
     '<div class="timing"><div class="k">The clock, worked out for you</div><ul>' +
       rows.map(function (r) { return '<li><span>' + r[0] + '</span><b>' + r[1] + '</b></li>'; }).join('') + '</ul></div>' +
-    '<h2>Your six shots</h2><p class="xs">Tick them as they are in the can. Six ticks and the camera goes away.</p>' +
+    '<h2>Your six shots</h2><p class="xs">Tick them here or on the shooting screen. Six ticks and the camera goes away.</p>' +
     '<div id="shots">' + (s.shots || []).map(function (sh, i) {
       return '<label class="check"><input type="checkbox" data-i="' + i + '"' + (sh.done ? ' checked' : '') +
         '><span><b>' + SHOTQ[i][0] + ' · ' + sh.size + '</b><small>' + esc(sh.text) +
@@ -790,12 +790,11 @@ function sheetScreen(main, bar, s) {
   if (open) editField(main, s, open);
   $$('#shots input', main).forEach(function (c) { c.onchange = function () {
     s.shots[+c.dataset.i].done = c.checked; save();
-    if (s.shots.every(function (x) { return x.done; })) alert('Six shots. The camera goes away.\nThe rest of the day is yours.');
     render(); }; });
 
-  bar.innerHTML = '<div class="row"><button class="btn quiet" id="home">' + (s.sample ? 'Home' : 'Sheets') +
+  bar.innerHTML = '<div class="row"><button class="btn quiet" id="home">' + (s.sample ? 'Home' : 'Home') +
     '</button><button class="btn quiet" id="share">Share</button></div>' +
-    '<button class="btn go" id="after">' + (s.sample ? 'Say mine' : (!s.plan || !s.plan.date) ? 'When?' : 'That night') + '</button>';
+    '<button class="btn go" id="after">' + (s.sample ? 'Say mine' : (!s.plan || !s.plan.date) ? 'When?' : allDone(s) ? 'That night' : 'Shoot it') + '</button>';
   $('#home', bar).onclick = function () { go('home'); };
   $('#share', bar).onclick = function () {
     var text = sheetText(s);
@@ -807,8 +806,29 @@ function sheetScreen(main, bar, s) {
   $('#after', bar).onclick = function () {
     if (s.sample) return newSheet();
     if (!s.plan || !s.plan.date) return go('plan', s.id);
+    if (!allDone(s)) return go('shots', s.id);
     go('after', s.id);
   };
+}
+
+// ---------- shooting: the six, one screen, nothing else on it ----------
+function shotsScreen(main, bar, s) {
+  var done = (s.shots || []).filter(function (x) { return x.done; }).length, left = 6 - done;
+  main.appendChild(el('<p class="eyebrow e">' + (s.plan && s.plan.date ? esc(planLabel(s.plan)) : 'Shooting') + '</p>' +
+    '<h1>' + (left === 0 ? 'Six shots. The camera goes away.' : left === 6 ? 'Six shots, then stop.' : left + ' shot' + (left === 1 ? '' : 's') + ' to go.') + '</h1>' +
+    '<p>\u201c' + esc(s.moment) + '\u201d</p>' +
+    (left === 0 ? '<div class="note"><b>The rest of the day is yours.</b> Say so out loud to whoever is with you. Tonight, three lines.</div>'
+      : '<div class="note e"><b>' + esc(s.win || 'Twenty minutes, once') + '.</b> Shoot the place first, the moment when it comes, the door last. Tick each as it is in the can.</div>') +
+    '<div id="shots">' + (s.shots || []).map(function (sh, i) {
+      return '<label class="check"><input type="checkbox" data-i="' + i + '"' + (sh.done ? ' checked' : '') +
+        '><span><b>' + SHOTQ[i][0].replace(/^(\d) /, '$1. ') + '</b><small>' + esc(sh.text) + '</small><small>' + SHOTQ[i][1] + ' Size: ' + sh.size + '.</small></span></label>'; }).join('') + '</div>'));
+  $$('#shots input', main).forEach(function (c) { c.onchange = function () {
+    s.shots[+c.dataset.i].done = c.checked; save(); render(); }; });
+  bar.innerHTML = '<button class="btn quiet" id="back">Home</button><button class="btn quiet" id="sheet">The sheet</button>' +
+    '<button class="btn go" id="next">' + (left === 0 ? 'Done for today' : 'Later') + '</button>';
+  $('#back', bar).onclick = function () { go('home'); };
+  $('#sheet', bar).onclick = function () { go('sheet', s.id); };
+  $('#next', bar).onclick = function () { go('home'); };
 }
 function editField(main, s, f) {
   if (s.sample) return;
@@ -918,11 +938,11 @@ function after(main, bar, s) {
 
 function numbersScreen(main, bar, s) {
   var n = s.numbers || {};
-  main.appendChild(el('<p class="eyebrow q">Show it · the numbers, read second</p><h1>Four numbers, once.</h1>' +
+  main.appendChild(el('<p class="eyebrow q">Show it: the numbers, read second</p><h1>Four numbers, once.</h1>' +
     '<p>Copy these from the platform’s own page. The Week Test already told you whether it worked. These only tell you what to change.</p>' +
     '<div class="num4">' + NUMS.map(function (k) {
       return '<div><label class="lbl" for="' + k[0] + '" style="margin-top:10px">' + k[1] + '</label>' +
-        '<input type="number" inputmode="numeric" id="' + k[0] + '" value="' + esc(n[k[0]] == null ? '' : n[k[0]]) + '" placeholder="—">' +
+        '<input type="number" inputmode="numeric" id="' + k[0] + '" value="' + esc(n[k[0]] == null ? '' : n[k[0]]) + '">' +
         '<div class="xs" style="margin-top:5px">' + k[2] + '</div></div>'; }).join('') + '</div>' +
     '<div class="note"><b>Passed with poor numbers</b> is a distribution problem, so keep making the same thing. <b>Failed with good numbers</b> means you got lucky, and there is nothing in it to learn.</div>'));
   bar.innerHTML = '<button class="btn quiet" id="skip">Later</button><button class="btn go" id="sv">Save</button>';
@@ -970,7 +990,7 @@ function diagnose(main, bar, s) {
 // ---------- log and season ----------
 function logScreen(main, bar) {
   var rows = db.sheets.filter(function (s) { return s.posted; }).slice().reverse();
-  main.appendChild(el('<p class="eyebrow q">Working pages · the log</p><h1>The Week Test log</h1>' +
+  main.appendChild(el('<p class="eyebrow q">Working pages: the log</p><h1>The Week Test log</h1>' +
     '<p>Twelve rows is about a season. This is the only record of whether you’re getting better, and it will disagree with your view counts, which is the point.</p>' +
     '<div class="rows">' + (rows.length ? rows.map(function (s) {
       return '<div class="rowi" data-id="' + s.id + '"><div><b>' + esc(s.title || s.moment) + '</b><small>Posted ' + fmt(s.posted) +
@@ -1010,7 +1030,7 @@ function season(main, bar) {
   done.forEach(function (s) { var d = s.door || '?'; byDoor[d] = byDoor[d] || { n: 0, p: 0 }; byDoor[d].n++; if (s.week.pass) byDoor[d].p++; });
   var css = getComputedStyle(document.documentElement);
   var ember = css.getPropertyValue('--ember').trim() || '#B4552A', accent = css.getPropertyValue('--accent').trim() || '#0D4F5C';
-  main.appendChild(el('<p class="eyebrow q">Show it · the season</p><h1>' +
+  main.appendChild(el('<p class="eyebrow q">Show it: the season</p><h1>' +
     (done.length >= 12 ? 'A season, read together.' : 'How you’re doing so far.') + '</h1>' +
     '<p>' + (done.length ? 'Built from every Week Test you have answered. The pass rate is the one that matters.'
       : 'Nothing to read yet. The first row lands seven days after your first post.') + '</p>' +
