@@ -113,7 +113,7 @@ function low(x) { return /^(The|A|An|My|Our|His|Her|Their|He|She|They|We|You|Som
 // pour" has one already, typed lowercase. Only a bare verb gets "we".
 var BASEVERB = /^(see|watch|catch|hear|try|taste|meet|find|fix|open|hand|pull|pour|start|run|play|sing|throw|race|ask|tell|make|build|finish|install|paint|cook|bake|plant|light|switch|plug|test|drive|ride|climb|jump|swim|walk|go|get|take|give|show|bring|cut|serve|wait|arrive|land|step|turn|lift|carry|read|write|call|answer|say|do|put|set|hold|hit|kick|score|win|lose|check|look|listen|smell|feel|touch|press|flip|drop|pick|unbox|reveal|unveil|surprise|greet|hug|kiss|film|record|shoot|let|help|stand|sit|come|leave|walk|eat|drink|sip)\b/i;
 var SMALLWORD = /^(the|a|an|my|our|his|her|their|he|she|they|we|i|you|it|someone|somebody|everyone|nobody|this|that|these|those|one|two|three|dad|mom|mum|grandma|grandpa|mr|mrs|ms|dr|my)\b/i;
-var BUILD = 14;
+var BUILD = 15;
 // "try's" is "tries" when the word is a verb; "dad's" stays.
 function conj(v) { v = v.toLowerCase(); if (/[^aeiou]y$/.test(v)) return v.slice(0, -1) + 'ies'; if (/(s|x|ch|sh|o)$/.test(v)) return v + 'es'; return v + 's'; }
 function fixVerbs(t) {
@@ -258,7 +258,7 @@ function draftShots(moment, door) {
   var D = {
     '1': ['Two seconds of the moment itself, out of context. Found in the edit.', 'The room, the thing small in it. Shoot this first.',
           'Me at it, then hands and the thing.', m + '. Recording before I reach for it.',
-          'Hands off it, and it holds. Two seconds.', 'One line down the lens: what it cost, what’s next.'],
+          'Hands off it, and it holds. Two seconds.', 'One line into the lens: what it cost, what’s next.'],
     '2': ['Two seconds of the face, out of context. Found in the edit.', 'Where we are, wide. Shoot it as we arrive.',
           'Getting there. One beat, closer.', m + '. The face as it happens.',
           'The thing itself, two seconds, held.', 'One line on the way back.'],
@@ -365,7 +365,7 @@ var LAMP = {
     { text: 'Me at the table, shade off → hands and the cord.', size: 'body', done: true },
     { text: 'Plug in, switch. Recording BEFORE I reach for it.', size: 'face', done: true },
     { text: 'Hand lets go of the switch, light stays on. Two seconds.', size: 'hands', done: true },
-    { text: 'Down the lens: “Two years. Eleven bucks.”', size: 'face', done: true }
+    { text: 'Into the lens: “Two years. Eleven bucks.”', size: 'face', done: true }
   ],
   night: ['Yes — on take two.', '8:32. Close.', 'Empty hallway first. Nearly didn’t.'],
   posted: '2026-09-02', week: { answer: 'The switch, first try — and the light holds.', pass: true },
@@ -392,7 +392,7 @@ function blank() {
 function bySheet(id) { for (var i = 0; i < db.sheets.length; i++) if (db.sheets[i].id === id) return db.sheets[i]; return null; }
 function mine() { return db.sheets.filter(function (s) { return !s.sample; }); }
 
-// ---------- licence ----------
+// ---------- license ----------
 function trialLeft() { return db.lic.trialEnds ? Math.ceil((new Date(db.lic.trialEnds) - new Date()) / 86400000) : 0; }
 function licensed() { return db.lic.unlocked || trialLeft() > 0; }
 function posted() { return mine().filter(function (x) { return x.posted; }).length; }
@@ -560,7 +560,7 @@ function home(main, bar) {
     var left = 6 - s.shots.filter(function (x) { return x.done; }).length;
     html = card('shoot', 'Next: ' + planLabel(s.plan),
       left === 6 ? 'Six shots, then stop.' : left + ' shot' + (left === 1 ? '' : 's') + ' to go.',
-      'Tick them as they land. When all six exist the camera goes away, and the rest of the day is yours.',
+      'Check them off as they land. When all six exist the camera goes away, and the rest of the day is yours.',
       '<button class="btn go" id="a1">Open my shots</button>');
   } else if (st === 'post') {
     html = card('wait', 'Next: it exists', 'Six shots. Now put it out.',
@@ -869,7 +869,7 @@ function sheetScreen(main, bar, s) {
     field('feeling', s.feeling, { label: 'The feeling', guess: g.feeling }) +
     '<div class="timing"><div class="k">The clock, worked out for you</div><ul>' +
       rows.map(function (r) { return '<li><span>' + r[0] + '</span><b>' + r[1] + '</b></li>'; }).join('') + '</ul></div>' +
-    '<h2>Your six shots</h2><p class="xs">Tick them here or on the shooting screen. Six ticks and the camera goes away.</p>' +
+    '<h2>Your six shots</h2><p class="xs">Check them off here or on the shooting screen. All six checked and the camera goes away.</p>' +
     '<div id="shots">' + (s.shots || []).map(function (sh, i) {
       return '<label class="check"><input type="checkbox" data-i="' + i + '"' + (sh.done ? ' checked' : '') +
         '><span><b>' + SHOTQ[i][0] + ' · ' + sh.size + '</b><small>' + esc(sh.text) +
@@ -909,7 +909,7 @@ function shotsScreen(main, bar, s) {
     '<h1>' + (left === 0 ? 'Six shots. The camera goes away.' : left === 6 ? 'Six shots, then stop.' : left + ' shot' + (left === 1 ? '' : 's') + ' to go.') + '</h1>' +
     '<p>\u201c' + esc(s.moment) + '\u201d</p>' +
     (left === 0 ? '<div class="note"><b>The rest of the day is yours.</b> Say so out loud to whoever is with you. Tonight, three lines.</div>'
-      : '<div class="note e"><b>' + esc(s.win || 'Twenty minutes, once') + '.</b> Shoot the place first, the moment when it comes, the door last. Tick each as it is in the can.</div>') +
+      : '<div class="note e"><b>' + esc(s.win || 'Twenty minutes, once') + '.</b> Shoot the place first, the moment when it comes, the door last. Check each one off as it is in the can.</div>') +
     '<div id="shots">' + (s.shots || []).map(function (sh, i) {
       return '<label class="check"><input type="checkbox" data-i="' + i + '"' + (sh.done ? ' checked' : '') +
         '><span><b>' + SHOTQ[i][0].replace(/^(\d) /, '$1. ') + '</b><small>' + esc(sh.text) + '</small><small>' + SHOTQ[i][1] + ' Size: ' + sh.size + '.</small></span></label>'; }).join('') + '</div>' +
@@ -918,7 +918,7 @@ function shotsScreen(main, bar, s) {
   $$('#shots input', main).forEach(function (c) { c.onchange = function () {
     s.shots[+c.dataset.i].done = c.checked; save(); render(); }; });
   var ut = $('#untick', main); if (ut) ut.onclick = function () {
-    if (!confirm('Untick all six and shoot the day again?')) return;
+    if (!confirm('Uncheck all six and shoot the day again?')) return;
     s.shots.forEach(function (x) { x.done = false; }); save(); render(); };
   $('#restart', main).onclick = function () { restartSheet(s); };
   bar.innerHTML = '<button class="btn quiet" id="back">Home</button><button class="btn quiet" id="sheet">The sheet</button>' +
@@ -975,7 +975,7 @@ function sheetText(s) {
     '\nPromise: ' + s.promise + '\nFeeling: ' + s.feeling + '\n\n' +
     (s.shots || []).map(function (sh, i) { return (sh.done ? '[x] ' : '[ ] ') + SHOTQ[i][0] + ' — ' + sh.text + ' (' + sh.size + ')'; }).join('\n') +
     '\n\n' + timing(s).map(function (r) { return r[0] + ': ' + r[1]; }).join('\n') +
-    '\n\nWhen every box is ticked, the camera goes away.';
+    '\n\nWhen every box is checked, the camera goes away.';
 }
 
 // ---------- that night, posting, the week test ----------
